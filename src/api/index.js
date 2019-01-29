@@ -1,24 +1,48 @@
 const express = require('express');
-const { apiUsers, apiUsersProtected } = require('./users');
-const { isAuthenticated, initAuth } = require('../controller/auth');
-// create an express Application for our api
+
+const hpp = require('hpp');
+const helmet = require('helmet');
+const enforce = require('express-sslify');
+
+const {
+    apiUsers,
+    apiUsersProtected,
+} = require('./users');
+const {
+    apiGroups,
+    apiGroupsProtected
+} = require('./groups');
+const {
+    isAuthenticated,
+    initAuth
+} = require('../controller/auth');
+
 const api = express();
+api.use(hpp());
+
+api.use(helmet());
+
+api.use(enforce.HTTPS({
+    trustProtoHeader: true
+}));
 initAuth();
 
-// apply a middelware to parse application/json body
-api.use(express.json({ limit: '1mb' }));
-// create an express router that will be mount at the root of the api
+api.use(express.json({
+    limit: '1mb'
+}));
+
 const apiRoutes = express.Router();
 apiRoutes
-    // test api
     .get('/', (req, res) =>
-        res.status(200).send({ message: 'hello from my api' })
+        res.status(200).send({
+            message: 'hello from my api'
+        })
     )
-    // connect api users router
     .use('/users', apiUsers)
-    // api bellow this middelware require Authorization
+    .use('/groups', apiGroups)
     .use(isAuthenticated)
     .use('/users', apiUsersProtected)
+    .use('/groups', apiGroupsProtected)
     .use((err, req, res, next) => {
         res.status(403).send({
             success: false,
@@ -27,6 +51,5 @@ apiRoutes
         next();
     });
 
-// root of our API will be http://localhost:5000/api/v1
 api.use('/api/v1', apiRoutes);
 module.exports = api;

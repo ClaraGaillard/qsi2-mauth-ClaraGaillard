@@ -1,20 +1,18 @@
-const bcrypt = require('bcrypt'); // https://github.com/kelektiv/node.bcrypt.js
+const bcrypt = require('bcrypt');
+const Groups = require('./groups');
 
 module.exports = (sequelize, DataTypes) => {
   const Users = sequelize.define(
-    'Users',
-    {
+    'Users', {
       id: {
-        // Avoid usage of auto-increment numbers, UUID is a better choice
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
-        comment: 'User ID',
+        comment: 'user id',
         primaryKey: true
       },
       firstName: {
         type: DataTypes.STRING,
-        comment: 'User first name',
-        // setter to standardize
+        comment: 'user firstname',
         set(val) {
           this.setDataValue(
             'firstName',
@@ -24,8 +22,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       lastName: {
         type: DataTypes.STRING,
-        comment: 'User last name',
-        // setter to standardize
+        comment: 'user lastname',
         set(val) {
           this.setDataValue(
             'lastName',
@@ -35,10 +32,8 @@ module.exports = (sequelize, DataTypes) => {
       },
       email: {
         type: DataTypes.STRING,
-        // Not null management
         allowNull: false,
-        comment: 'User email',
-        // Field validation
+        comment: 'user email',
         validate: {
           isEmail: true
         }
@@ -47,31 +42,24 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: false,
         comment: 'Hash for the user password',
-        // setter to hash the password
         set(val) {
           const hash = bcrypt.hashSync(val, 12);
           this.setDataValue('hash', hash);
         }
       }
-    },
-    {
-      // logical delete over physical delete
+    }, {
       paranoid: true,
-      indexes: [
-        {
-          unique: true,
-          fields: ['email']
-        }
-      ]
+      indexes: [{
+        unique: true,
+        fields: ['email']
+      }]
     }
   );
 
-  // we don't want to send password even if crypted
   Users.excludeAttributes = ['hash'];
 
-  // anonymous function mandatody to access this in instance method
   /* eslint func-names:off */
-  Users.prototype.comparePassword = function(password) {
+  Users.prototype.comparePassword = function (password) {
     return new Promise((resolve, reject) => {
       bcrypt.compare(password, this.hash, (err, res) => {
         if (err || !res) {
@@ -79,6 +67,15 @@ module.exports = (sequelize, DataTypes) => {
         }
         return resolve();
       });
+    });
+  };
+
+  Users.associate = models => {
+    Users.belongsToMany(models.Groups, {
+      through: 'userGroup'
+    });
+    Users.hasOne(models.Groups, {
+      as: 'owner'
     });
   };
 
